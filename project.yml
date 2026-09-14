@@ -1,0 +1,65 @@
+name: MenuMaiden
+options:
+  bundleIdPrefix: net.scottkuma
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  MenuMaiden:
+    type: application
+    platform: macOS
+    sources:
+      - path: MenuMaiden
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.scottkuma.MenuMaiden
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Menu Maiden needs your location to calculate your current Maidenhead Grid Square."
+        INFOPLIST_KEY_CFBundleDisplayName: "Menu Maiden"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    entitlements:
+      path: MenuMaiden/MenuMaiden.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.personal-information.location: true
+        com.apple.security.device.serial: true
+    info:
+      path: Generated-Info.plist
+      properties:
+        LSApplicationCategoryType: public.app-category.utilities
+
+  MenuMaidenTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MenuMaidenTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.scottkuma.MenuMaidenTests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MenuMaiden
+
+schemes:
+  MenuMaiden:
+    build:
+      targets:
+        MenuMaiden: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MenuMaidenTests
