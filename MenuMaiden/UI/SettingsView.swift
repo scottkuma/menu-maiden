@@ -76,6 +76,12 @@ struct SettingsView: View {
             } header: {
                 Label("GPS Settings", systemImage: "dot.radiowaves.left.and.right")
             }
+
+            Section {
+                clockSyncCompensationControl
+            } header: {
+                Label("Clock Sync", systemImage: "clock.arrow.2.circlepath")
+            }
         }
         .formStyle(.grouped)
     }
@@ -210,9 +216,13 @@ struct SettingsView: View {
 
     private var gpsTimeText: String {
         guard let fix = gpsService.status.fix else { return "—" }
+        // fix.utcTime is a Date (an instant), and .formatted(date:time:) always renders
+        // in the current locale/time zone — there's no way to get true UTC out of it
+        // without passing an explicit TimeZone, so this was mislabeled before. Rendering
+        // it as local time (matching the Location Services row above) is correct as-is.
         let time = fix.utcTime.formatted(date: .omitted, time: .standard)
-        guard let offset = gpsService.clockOffset else { return "\(time) UTC" }
-        return "\(time) UTC (\(String(format: "%+.1f", offset))s)"
+        guard let offset = gpsService.clockOffset else { return time }
+        return "\(time) (\(String(format: "%+.1f", offset))s)"
     }
 
     // MARK: - Grid Precision
@@ -289,6 +299,21 @@ struct SettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
             }
+        }
+    }
+
+    private var clockSyncCompensationControl: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Stepper(
+                "Latency Compensation: \(Int(settings.clockSyncCompensationMs)) ms",
+                value: $settings.clockSyncCompensationMs,
+                in: -1000...1000,
+                step: 10
+            )
+
+            Text("Compensates for the delay between the GPS's clock tick and this app receiving its fix, so \"Sync System Clock to GPS\" lands closer to the true second. There's no way to measure this automatically — increase it if the offset shown above reads negative right after a sync, decrease it if positive, and repeat until it's near zero.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

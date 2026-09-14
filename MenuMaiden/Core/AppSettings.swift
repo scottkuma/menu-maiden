@@ -12,6 +12,7 @@ final class AppSettings: ObservableObject {
         static let allCapsGrid = "allCapsGrid"
         static let coordinateFormat = "coordinateFormat"
         static let reverseLatLon = "reverseLatLon"
+        static let clockSyncCompensationMs = "clockSyncCompensationMs"
     }
 
     private let defaults: UserDefaults
@@ -55,6 +56,17 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(reverseLatLon, forKey: Keys.reverseLatLon) }
     }
 
+    /// A fixed, user-calibrated correction (milliseconds) subtracted from the measured
+    /// clock offset before it's rounded to a whole second for "Sync System Clock to GPS".
+    /// `date`'s SET syntax only accepts whole seconds, so the sub-second delay between a
+    /// GPS's internal clock tick and the app finishing parsing that fix's NMEA sentence —
+    /// real serial/chipset latency, not noise — otherwise lands in the same direction every
+    /// sync instead of averaging out. There's no way to measure that delay in software
+    /// without a ground-truth clock, so it's tuned by hand per device/baud rate.
+    @Published var clockSyncCompensationMs: Double {
+        didSet { defaults.set(clockSyncCompensationMs, forKey: Keys.clockSyncCompensationMs) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
@@ -92,5 +104,11 @@ final class AppSettings: ObservableObject {
         }
 
         self.reverseLatLon = defaults.bool(forKey: Keys.reverseLatLon)
+
+        if defaults.object(forKey: Keys.clockSyncCompensationMs) != nil {
+            self.clockSyncCompensationMs = defaults.double(forKey: Keys.clockSyncCompensationMs)
+        } else {
+            self.clockSyncCompensationMs = 0
+        }
     }
 }

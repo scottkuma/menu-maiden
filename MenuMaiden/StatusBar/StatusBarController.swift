@@ -151,7 +151,14 @@ final class StatusBarController: NSObject {
     @objc private func syncSystemClockToGPS() {
         guard gpsService.status.fix != nil, let offset = gpsService.clockOffset else { return }
 
-        let correctionSeconds = -Int(offset.rounded())
+        // `date`'s SET syntax only accepts whole seconds, so naively rounding `offset`
+        // leaves up to ±0.5s of error — and that error isn't random noise, it's dominated
+        // by the real (roughly constant, for a given device/baud rate) latency between the
+        // GPS's internal clock tick and this app finishing parsing that fix's NMEA sentence.
+        // `clockSyncCompensationMs` is a hand-calibrated estimate of that latency, subtracted
+        // here so the rounding lands close to the true second instead of biased by it.
+        let adjustedOffset = offset - (settings.clockSyncCompensationMs / 1000)
+        let correctionSeconds = -Int(adjustedOffset.rounded())
         let adjustment = correctionSeconds >= 0 ? "+\(correctionSeconds)" : "\(correctionSeconds)"
 
         // BSD date's set syntax is MMDDhhmm[[CC]YY][.ss] — month/day/hour/minute first,

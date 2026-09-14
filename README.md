@@ -54,12 +54,29 @@ The Maidenhead grid calculation and NMEA parsing are both pure, side-effect-free
 
 ## Permissions & entitlements
 
-The app runs inside the App Sandbox with two entitlements:
+Menu Maiden does **not** run inside the App Sandbox. It requests:
 
-- `com.apple.security.personal-information.location` — for Location Services
-- `com.apple.security.device.serial` — for the USB GPS receiver
+- **Location Services access** (`NSLocationWhenInUseUsageDescription` in `project.yml`) — for the Location Services position source
+- **Serial port access** — no entitlement needed outside the sandbox; the GPS device just needs to be readable at its `/dev/cu.*` path
+- **Admin authentication**, on demand, only when you use **Sync System Clock to GPS** — triggers the standard macOS Touch ID/password prompt via a privileged `do shell script`
 
-Both are declared in `project.yml` and applied to the generated `.xcodeproj` by XcodeGen.
+The sandbox was dropped deliberately in v0.80 because setting the system clock requires a privileged shell command that the sandbox blocks. Since Menu Maiden is distributed via Developer ID rather than the Mac App Store, sandboxing brought no benefit here — only ambiguity about whether the clock-sync feature would work.
+
+## GPS clock sync accuracy
+
+The right-click menu's **Sync System Clock to GPS** sets the Mac's system clock to match the connected GPS receiver's time (admin authentication required). Getting this accurate runs into one hard limit and one tunable one:
+
+- **Whole-second granularity.** macOS's `date` command can only *set* the clock to a whole second — there's no way to set fractional seconds from the command line. Menu Maiden works around this by computing the correction and applying it inside the privileged shell right after authentication succeeds (rather than before), so an admin prompt that takes a few seconds to answer doesn't get baked into the applied time.
+- **NMEA sentence latency.** There's a real, physical delay between the GPS's internal clock tick and Menu Maiden finishing parsing that fix's NMEA sentence — chipset processing time plus serial transmission time. This delay is roughly constant for a given GPS device and baud rate, so it shows up as a consistent bias in the same direction on every sync rather than random noise that averages out.
+
+Settings → GPS → **Clock Sync** has a **Latency Compensation** stepper (in milliseconds) to cancel that bias out. It's subtracted from the measured offset before the sync rounds to a whole second, so once it's calibrated correctly, the rounding lands close to the true second instead of being skewed by it. There's no way to measure the right value automatically (it depends on your specific GPS hardware and baud rate), so it has to be calibrated by hand:
+
+1. Set compensation to 0, artificially offset the system clock (e.g. `sudo date` set a few minutes off), sync, and check the residual offset shown in the Position Comparison table right after.
+2. If the residual reads **negative**, **increase** compensation (100–300ms is a typical starting point for NMEA GPS receivers).
+3. If it reads **positive**, decrease it.
+4. Repeat until the post-sync residual is near zero. It should converge in a couple of tries, and stays good until you switch GPS devices or baud rates.
+
+Even calibrated, don't expect better than roughly ±100–200ms: that's bounded by the GPS module's own timing jitter. Sub-100ms accuracy would require a PPS (pulse-per-second) hardware line, which most USB NMEA GPS receivers don't expose over plain serial.
 
 ## Roadmap
 
