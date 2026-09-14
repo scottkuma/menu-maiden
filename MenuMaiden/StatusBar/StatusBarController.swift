@@ -98,7 +98,7 @@ final class StatusBarController: NSObject {
 
         let syncClockItem = NSMenuItem(title: "Sync System Clock to GPS", action: #selector(syncSystemClockToGPS), keyEquivalent: "")
         syncClockItem.target = self
-        syncClockItem.isEnabled = gpsService.status.fix != nil
+        syncClockItem.isEnabled = gpsService.hasFreshFix
         menu.addItem(syncClockItem)
 
         menu.addItem(.separator())
@@ -149,7 +149,9 @@ final class StatusBarController: NSObject {
     /// "now" and applies the correction back-to-back, inside the privileged shell, only
     /// after authentication succeeds.
     @objc private func syncSystemClockToGPS() {
-        guard gpsService.status.fix != nil, let offset = gpsService.clockOffset else { return }
+        // Re-checked here, not just at menu-build time: the menu could stay open across the
+        // staleness threshold, or this could get called some other way in the future.
+        guard gpsService.hasFreshFix, let offset = gpsService.clockOffset else { return }
 
         // `date`'s SET syntax only accepts whole seconds, so naively rounding `offset`
         // leaves up to ±0.5s of error — and that error isn't random noise, it's dominated

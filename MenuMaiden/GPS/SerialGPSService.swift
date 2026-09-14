@@ -41,6 +41,13 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
     private static let messageLogCapacity = 200
     private static let baudDetectionWindow: TimeInterval = 1.5
 
+    /// RMC sentences arrive roughly once a second; a receiver that's lost satellite lock
+    /// (antenna covered, indoors, etc.) can stop producing valid fixes while the serial
+    /// port itself stays open with no read error — `status` would otherwise sit frozen on
+    /// the last good `.fixAcquired` forever. A few seconds of tolerance absorbs the
+    /// occasional dropped/garbled sentence without falsely flagging a still-healthy GPS.
+    private static let fixStalenessThreshold: TimeInterval = 5
+
     @Published private(set) var status: GPSStatus = .noDeviceSelected
     @Published private(set) var recentMessages: [String] = []
 
@@ -51,6 +58,18 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
     /// next sentence arrives. Holding one value steady between fixes reports actual clock
     /// skew instead of that polling artifact.
     @Published private(set) var clockOffset: TimeInterval?
+
+    /// When the most recent valid fix was received (wall-clock receipt time, not the GPS's
+    /// own reported time) — used to detect a stale/frozen fix, not to display anything.
+    private var lastFixReceivedAt: Date?
+
+    /// True only when there's a currently-connected GPS with a fix received recently enough
+    /// to trust — the single source of truth for whether it's safe to act on `clockOffset`
+    /// (e.g. enabling "Sync System Clock to GPS").
+    var hasFreshFix: Bool {
+        guard status.fix != nil, let lastFixReceivedAt else { return false }
+        return Date().timeIntervalSince(lastFixReceivedAt) < Self.fixStalenessThreshold
+    }
 
     private let ioQueue = DispatchQueue(label: "net.scottkuma.MenuMaiden.gps-serial")
     private var fileDescriptor: Int32 = -1
@@ -234,6 +253,7 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
             if let fix = NMEAParser.parse(line: line) {
                 self.status = .fixAcquired(fix)
                 self.clockOffset = receivedAt.timeIntervalSince(fix.utcTime)
+                self.lastFixReceivedAt = receivedAt
             }
         }
     }
@@ -261,6 +281,7 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
             // than leave a stale reading on screen.
             if status.fix == nil {
                 self.clockOffset = nil
+                self.lastFixReceivedAt = nil
             }
         }
     }
