@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AboutView: View {
     private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.75"
     }
 
     private var build: String {
@@ -20,7 +20,7 @@ struct AboutView: View {
                 .font(.title3)
                 .bold()
 
-            Text("Version \(version) (\(build))")
+            Text("Version \(version) Beta (\(build))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
