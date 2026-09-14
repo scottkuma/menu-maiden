@@ -8,7 +8,13 @@ enum MaidenheadGrid {
     ///   - latitude: Latitude in degrees, -90...90.
     ///   - longitude: Longitude in degrees, -180...180.
     ///   - precision: Number of characters to return (2, 4, 6, or 8).
-    static func locator(latitude: Double, longitude: Double, precision: GridPrecision) -> String {
+    ///   - uppercase: When true, the normally-lowercase subsquare letters are uppercased too.
+    static func locator(latitude: Double, longitude: Double, precision: GridPrecision, uppercase: Bool = false) -> String {
+        let result = rawLocator(latitude: latitude, longitude: longitude, precision: precision)
+        return uppercase ? result.uppercased() : result
+    }
+
+    private static func rawLocator(latitude: Double, longitude: Double, precision: GridPrecision) -> String {
         let asciiA = Int(UnicodeScalar("A").value)
 
         // Normalize into 0..<360 (lon) and 0..<180 (lat), clamping the poles/dateline

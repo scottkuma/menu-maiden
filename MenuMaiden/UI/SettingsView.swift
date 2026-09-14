@@ -12,7 +12,7 @@ struct SettingsView: View {
     @State private var availableDevices: [SerialDevice] = []
     @State private var now = Date()
 
-    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let clockTimer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
     private let deviceRefreshTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -33,6 +33,9 @@ struct SettingsView: View {
 
                 gpsTab
                     .tabItem { Label("GPS", systemImage: "dot.radiowaves.left.and.right") }
+
+                coordinateFormatsTab
+                    .tabItem { Label("Coordinate Formats", systemImage: "globe.americas") }
             }
             .frame(maxHeight: .infinity)
         }
@@ -72,6 +75,35 @@ struct SettingsView: View {
                 gpsDeviceControls
             } header: {
                 Label("GPS Settings", systemImage: "dot.radiowaves.left.and.right")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var coordinateFormatsTab: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Format", selection: $settings.coordinateFormat) {
+                        ForEach(CoordinateFormat.allCases, id: \.self) { format in
+                            Text(format.label).tag(format)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+
+                    Text("Example: \(settings.coordinateFormat.example)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Label("Coordinate Format", systemImage: "globe.americas")
+            }
+
+            Section {
+                Toggle("Reverse Latitude/Longitude Order", isOn: $settings.reverseLatLon)
+            } header: {
+                Label("Output Order", systemImage: "arrow.left.arrow.right")
             }
         }
         .formStyle(.grouped)
@@ -125,7 +157,7 @@ struct SettingsView: View {
                 Text(row.position)
                     .foregroundStyle(row.hasFix ? .primary : .secondary)
             }
-            .width(min: 130, ideal: 160)
+            .width(min: 130, ideal: 220)
 
             TableColumn("Grid Square") { row in
                 Text(row.grid)
@@ -148,22 +180,32 @@ struct SettingsView: View {
 
     private var locationPositionText: String {
         guard let coordinate = locationProvider.currentCoordinate else { return locationServicesStatusText }
-        return String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
+        return formattedPosition(latitude: coordinate.latitude, longitude: coordinate.longitude)
     }
 
     private var locationGridText: String {
         guard let coordinate = locationProvider.currentCoordinate else { return "—" }
-        return MaidenheadGrid.locator(latitude: coordinate.latitude, longitude: coordinate.longitude, precision: .eight)
+        return MaidenheadGrid.locator(
+            latitude: coordinate.latitude, longitude: coordinate.longitude, precision: .eight, uppercase: settings.allCapsGrid
+        )
     }
 
     private var gpsPositionText: String {
         guard let fix = gpsService.status.fix else { return gpsService.status.message }
-        return String(format: "%.5f, %.5f", fix.coordinate.latitude, fix.coordinate.longitude)
+        return formattedPosition(latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude)
     }
 
     private var gpsGridText: String {
         guard let fix = gpsService.status.fix else { return "—" }
-        return MaidenheadGrid.locator(latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude, precision: .eight)
+        return MaidenheadGrid.locator(
+            latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude, precision: .eight, uppercase: settings.allCapsGrid
+        )
+    }
+
+    private func formattedPosition(latitude: Double, longitude: Double) -> String {
+        CoordinateFormatter.string(
+            latitude: latitude, longitude: longitude, format: settings.coordinateFormat, reversed: settings.reverseLatLon
+        )
     }
 
     private var gpsTimeText: String {
@@ -176,13 +218,18 @@ struct SettingsView: View {
     // MARK: - Grid Precision
 
     private var precisionPicker: some View {
-        Picker("Precision", selection: $settings.precision) {
-            ForEach(GridPrecision.allCases, id: \.self) { precision in
-                Text("\(precision.label) (\(precision.distanceDescription))").tag(precision)
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Precision", selection: $settings.precision) {
+                ForEach(GridPrecision.allCases, id: \.self) { precision in
+                    Text("\(precision.label) (\(precision.distanceDescription))").tag(precision)
+                }
             }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
+
+            Toggle("ALL CAPS Grid Square (EM79VI instead of EM79vi)", isOn: $settings.allCapsGrid)
+                .padding(.top, 12)
         }
-        .pickerStyle(.radioGroup)
-        .labelsHidden()
     }
 
     // MARK: - Position Source

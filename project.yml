@@ -27,14 +27,8 @@ targets:
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Menu Maiden needs your location to calculate your current Maidenhead Grid Square."
         INFOPLIST_KEY_CFBundleDisplayName: "Menu Maiden"
-        MARKETING_VERSION: "0.751"
-        CURRENT_PROJECT_VERSION: "2"
-    entitlements:
-      path: MenuMaiden/MenuMaiden.entitlements
-      properties:
-        com.apple.security.app-sandbox: true
-        com.apple.security.personal-information.location: true
-        com.apple.security.device.serial: true
+        MARKETING_VERSION: "0.80"
+        CURRENT_PROJECT_VERSION: "3"
     info:
       path: Generated-Info.plist
       properties:

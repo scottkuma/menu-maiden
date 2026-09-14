@@ -30,7 +30,7 @@
 
 [^1]: When the user click on "Copy Grid Square", the grid square will be copied in the format displayed in the menu bar/selected in the settings tab.
 [^2]: When the user clicks on Copy Latitude/Longitude, it will use the SOURCE (Location Services or external GPS) and FORMAT options as chosen in the settings tab.
-[^3]: This option is only available when there is an externally-attached GPS that has a good time sync.
+[^3]: This option is only available when there is an externally-attached GPS that has a good time sync. Clock sync should take place as close to the received GPS clock pulse as possible, to minimize any gap.
 
 *  **Left-click on Menu Bar Item**: The app cycles through precision settings, increasing from the current precision. For example, if the app is currently set to 4 character precision, left-clicking it will change to 6 characters. Left-clicking it again will change to 8 characters.  Left-clicking the menu bar when displaying 8 characters will set it to 2 characters. And left-clicking the menu bar when displaying 2 characters will change it to 4 character precision
 *  **Settings Window**: 

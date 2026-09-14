@@ -9,6 +9,9 @@ final class AppSettings: ObservableObject {
         static let locationSource = "locationSource"
         static let selectedGPSDevicePath = "selectedGPSDevicePath"
         static let gpsBaudRate = "gpsBaudRate"
+        static let allCapsGrid = "allCapsGrid"
+        static let coordinateFormat = "coordinateFormat"
+        static let reverseLatLon = "reverseLatLon"
     }
 
     private let defaults: UserDefaults
@@ -40,6 +43,18 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    @Published var allCapsGrid: Bool {
+        didSet { defaults.set(allCapsGrid, forKey: Keys.allCapsGrid) }
+    }
+
+    @Published var coordinateFormat: CoordinateFormat {
+        didSet { defaults.set(coordinateFormat.rawValue, forKey: Keys.coordinateFormat) }
+    }
+
+    @Published var reverseLatLon: Bool {
+        didSet { defaults.set(reverseLatLon, forKey: Keys.reverseLatLon) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
@@ -66,5 +81,16 @@ final class AppSettings: ObservableObject {
         } else {
             self.gpsBaudRate = nil
         }
+
+        self.allCapsGrid = defaults.bool(forKey: Keys.allCapsGrid)
+
+        if let stored = defaults.string(forKey: Keys.coordinateFormat),
+           let format = CoordinateFormat(rawValue: stored) {
+            self.coordinateFormat = format
+        } else {
+            self.coordinateFormat = .decimalDegrees
+        }
+
+        self.reverseLatLon = defaults.bool(forKey: Keys.reverseLatLon)
     }
 }

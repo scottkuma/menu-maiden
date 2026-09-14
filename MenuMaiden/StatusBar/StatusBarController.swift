@@ -40,8 +40,9 @@ final class StatusBarController: NSObject {
     private func observe() {
         locationProvider.$currentCoordinate
             .combineLatest(gpsService.$status, settings.$precision, settings.$locationSource)
+            .combineLatest(settings.$allCapsGrid)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _, _, _ in
+            .sink { [weak self] _, _ in
                 self?.refreshTitle()
             }
             .store(in: &cancellables)
@@ -61,7 +62,8 @@ final class StatusBarController: NSObject {
             currentLocator = MaidenheadGrid.locator(
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude,
-                precision: settings.precision
+                precision: settings.precision,
+                uppercase: settings.allCapsGrid
             )
         } else {
             currentLocator = String(repeating: "-", count: settings.precision.rawValue)
@@ -84,9 +86,20 @@ final class StatusBarController: NSObject {
     private func showMenu() {
         let menu = NSMenu()
 
-        let copyItem = NSMenuItem(title: "Copy Grid Square", action: #selector(copyGridSquare), keyEquivalent: "")
-        copyItem.target = self
-        menu.addItem(copyItem)
+        let copyGridItem = NSMenuItem(title: "Copy Grid Square", action: #selector(copyGridSquare), keyEquivalent: "")
+        copyGridItem.target = self
+        menu.addItem(copyGridItem)
+
+        let copyLatLonItem = NSMenuItem(title: "Copy Latitude/Longitude", action: #selector(copyLatLon), keyEquivalent: "")
+        copyLatLonItem.target = self
+        menu.addItem(copyLatLonItem)
+
+        menu.addItem(.separator())
+
+        let syncClockItem = NSMenuItem(title: "Sync System Clock to GPS", action: #selector(syncSystemClockToGPS), keyEquivalent: "")
+        syncClockItem.target = self
+        syncClockItem.isEnabled = gpsService.status.fix != nil
+        menu.addItem(syncClockItem)
 
         menu.addItem(.separator())
 
@@ -113,6 +126,59 @@ final class StatusBarController: NSObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(currentLocator, forType: .string)
+    }
+
+    @objc private func copyLatLon() {
+        guard let coordinate = activeCoordinate() else { return }
+        let text = CoordinateFormatter.string(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            format: settings.coordinateFormat,
+            reversed: settings.reverseLatLon
+        )
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    /// Sets the system clock to match the GPS's time. Deliberately doesn't precompute a
+    /// fixed target timestamp before the admin-auth prompt runs — however long the user
+    /// takes to authenticate would go straight into the applied time, undermining the PRD's
+    /// "as close to the received GPS clock pulse as possible" requirement. Instead a
+    /// *relative* whole-second correction is baked into a shell one-liner that computes
+    /// "now" and applies the correction back-to-back, inside the privileged shell, only
+    /// after authentication succeeds.
+    @objc private func syncSystemClockToGPS() {
+        guard gpsService.status.fix != nil, let offset = gpsService.clockOffset else { return }
+
+        let correctionSeconds = -Int(offset.rounded())
+        let adjustment = correctionSeconds >= 0 ? "+\(correctionSeconds)" : "\(correctionSeconds)"
+
+        // BSD date's set syntax is MMDDhhmm[[CC]YY][.ss] — month/day/hour/minute first,
+        // then the year, then seconds last — not year-first. Confirmed by testing the
+        // command directly, unprivileged: %Y%m%d%H%M.%S reliably produced "illegal time
+        // format" on its own, with nothing to do with AppleScript or privilege escalation
+        // (both of which turned out to be working correctly the whole time).
+        let script = """
+        do shell script "/bin/date -u $(/bin/date -u -v\(adjustment)S +%m%d%H%M%Y.%S)" with administrator privileges with prompt "Menu Maiden wants to set the system clock to match the GPS time."
+        """
+
+        guard let appleScript = NSAppleScript(source: script) else { return }
+        var errorInfo: NSDictionary?
+        appleScript.executeAndReturnError(&errorInfo)
+        if let errorInfo {
+            presentSyncError(errorInfo)
+        }
+    }
+
+    private func presentSyncError(_ errorInfo: NSDictionary) {
+        let message = errorInfo[NSAppleScript.errorMessage] as? String ?? "Unknown error."
+        let alert = NSAlert()
+        alert.messageText = "Couldn't Sync System Clock"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     @objc private func openSettings() {

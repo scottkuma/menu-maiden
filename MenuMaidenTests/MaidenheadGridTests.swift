@@ -41,6 +41,16 @@ final class MaidenheadGridTests: XCTestCase {
         XCTAssertNoThrow(MaidenheadGrid.locator(latitude: 90, longitude: 180, precision: .eight))
         XCTAssertNoThrow(MaidenheadGrid.locator(latitude: -90, longitude: -180, precision: .eight))
     }
+
+    func testUppercaseDefaultsToFalse() {
+        let locator = MaidenheadGrid.locator(latitude: 41.7147, longitude: -72.7273, precision: .six)
+        XCTAssertEqual(locator, "FN31pr")
+    }
+
+    func testUppercaseTrueUppercasesTheSubsquareLetters() {
+        let locator = MaidenheadGrid.locator(latitude: 41.7147, longitude: -72.7273, precision: .six, uppercase: true)
+        XCTAssertEqual(locator, "FN31PR")
+    }
 }
 
 final class GridPrecisionTests: XCTestCase {
