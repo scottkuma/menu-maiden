@@ -9,11 +9,14 @@ Position can come from macOS Location Services or a USB serial NMEA GPS receiver
 - **Grid square in the menu bar**, calculated live from your current position
 - **Configurable precision** — 2, 4, 6, or 8 characters
   - 2 chars ≈ 1,200 × 1,400 mi · 4 chars ≈ 70 × 100 mi · 6 chars ≈ 3 × 4 mi · 8 chars ≈ 1,500 × 2,300 ft
+  - Optional **ALL CAPS** display (`EM79VI` instead of `EM79vi`)
 - **Left-click the menu bar item** to cycle precision (4 → 6 → 8 → 2 → 4 …)
-- **Right-click** for Copy Grid Square, Settings, About, and Quit
+- **Right-click** for Copy Grid Square, Copy Latitude/Longitude, Sync System Clock to GPS, Settings, About, and Quit
 - **Position source**: macOS Location Services, or a USB serial NMEA GPS receiver — the GPS stays connected and visible in Settings regardless of which one is active
 - **GPS auto-baud detection**, device picker, and a live raw NMEA message log
 - **Position Comparison table** showing Location Services vs. GPS time and position side by side
+- **Configurable coordinate formats** — Decimal Degrees, Degrees/Minutes/Seconds, or Degrees/Decimal Minutes, with an option to reverse Latitude/Longitude order — applied to both the display and Copy Latitude/Longitude
+- **Sync System Clock to GPS**, with a calibratable latency compensation setting to tighten accuracy — see [GPS clock sync accuracy](#gps-clock-sync-accuracy) below
 - **Launch at login**
 
 ## Requirements
@@ -80,7 +83,7 @@ Even calibrated, don't expect better than roughly ±100–200ms: that's bounded 
 
 ## Roadmap
 
-See the [PRD](Product%20Requirements%20Document%20(PRD).md) for the full spec. Not yet built:
+See the [v0.80b PRD](Product%20Requirements%20Document%20(PRD)%20v0.80b.md) for the full spec. Not yet built:
 
 - Position reporting to WSJT-X and other ham radio applications
 - A GPS-disciplined local NTP time service (would require a privileged helper daemon and move distribution off the Mac App Store)
