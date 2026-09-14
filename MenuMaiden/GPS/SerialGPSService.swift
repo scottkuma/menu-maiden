@@ -44,6 +44,14 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
     @Published private(set) var status: GPSStatus = .noDeviceSelected
     @Published private(set) var recentMessages: [String] = []
 
+    /// Snapshotted once per fix, right when its sentence is read — not recomputed against
+    /// a live clock. GPS fixes update roughly once a second; comparing `fix.utcTime` against
+    /// `Date()` on every UI refresh made this sawtooth from ~0s up to ~1s between updates,
+    /// since the system clock keeps advancing while the GPS timestamp sits still until the
+    /// next sentence arrives. Holding one value steady between fixes reports actual clock
+    /// skew instead of that polling artifact.
+    @Published private(set) var clockOffset: TimeInterval?
+
     private let ioQueue = DispatchQueue(label: "net.scottkuma.MenuMaiden.gps-serial")
     private var fileDescriptor: Int32 = -1
     private var readSource: DispatchSourceRead?
@@ -198,9 +206,13 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
                 return
             }
 
+            // Captured as close to the actual byte-receipt as possible (before the hop to
+            // main), rather than inside handle(), so the offset reflects when the data
+            // truly arrived rather than whenever the main queue happened to run.
+            let receivedAt = Date()
             pending += String(decoding: buffer[0..<bytesRead], as: UTF8.self)
             for line in NMEALineSplitter.extractLines(from: &pending) {
-                self.handle(line: line, generation: generation)
+                self.handle(line: line, generation: generation, receivedAt: receivedAt)
             }
         }
         source.setCancelHandler {
@@ -210,7 +222,7 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
         source.resume()
     }
 
-    private func handle(line: String, generation: Int) {
+    private func handle(line: String, generation: Int, receivedAt: Date) {
         DispatchQueue.main.async { [weak self] in
             guard let self, generation == self.generation else { return }
 
@@ -221,6 +233,7 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
 
             if let fix = NMEAParser.parse(line: line) {
                 self.status = .fixAcquired(fix)
+                self.clockOffset = receivedAt.timeIntervalSince(fix.utcTime)
             }
         }
     }
@@ -241,7 +254,14 @@ final class SerialGPSService: ObservableObject, @unchecked Sendable {
 
     private func setStatus(_ status: GPSStatus) {
         DispatchQueue.main.async { [weak self] in
-            self?.status = status
+            guard let self else { return }
+            self.status = status
+            // Any transition away from a fix (disconnect, error, reconnecting, ...) means
+            // the snapshotted offset no longer reflects anything current — clear it rather
+            // than leave a stale reading on screen.
+            if status.fix == nil {
+                self.clockOffset = nil
+            }
         }
     }
 }

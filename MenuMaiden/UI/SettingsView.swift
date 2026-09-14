@@ -46,9 +46,9 @@ struct SettingsView: View {
     private var generalTab: some View {
         Form {
             Section {
-                precisionPicker
+                startupToggle
             } header: {
-                Label("Grid Precision", systemImage: "ruler")
+                Label("Startup", systemImage: "power")
             }
 
             Section {
@@ -58,9 +58,9 @@ struct SettingsView: View {
             }
 
             Section {
-                startupToggle
+                precisionPicker
             } header: {
-                Label("Startup", systemImage: "power")
+                Label("Grid Precision", systemImage: "ruler")
             }
         }
         .formStyle(.grouped)
@@ -168,8 +168,8 @@ struct SettingsView: View {
 
     private var gpsTimeText: String {
         guard let fix = gpsService.status.fix else { return "—" }
-        let offset = Date().timeIntervalSince(fix.utcTime)
         let time = fix.utcTime.formatted(date: .omitted, time: .standard)
+        guard let offset = gpsService.clockOffset else { return "\(time) UTC" }
         return "\(time) UTC (\(String(format: "%+.1f", offset))s)"
     }
 
