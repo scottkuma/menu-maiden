@@ -85,6 +85,12 @@ final class StatusBarController: NSObject {
 
     private func showMenu() {
         let menu = NSMenu()
+        // NSMenu's default autoenablesItems force-enables any item whose target responds
+        // to its action selector, overriding a manually-set isEnabled — since every item
+        // here targets self and self always responds, that silently re-enabled Sync System
+        // Clock to GPS regardless of hasFreshFix. Disabling auto-enabling makes isEnabled
+        // below actually take effect.
+        menu.autoenablesItems = false
 
         let copyGridItem = NSMenuItem(title: "Copy Grid Square", action: #selector(copyGridSquare), keyEquivalent: "")
         copyGridItem.target = self
