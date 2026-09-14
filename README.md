@@ -1,5 +1,7 @@
 # Menu Maiden
 
+![screenshot](./MenuMaiden.png)
+
 A macOS menu bar app that displays your current [Maidenhead Grid Square](https://en.wikipedia.org/wiki/Maidenhead_Locator_System) — built for amateur radio operators doing field activities like *Parks on the Air* (POTA) or *Summits on the Air* (SOTA).
 
 Position can come from macOS Location Services or a USB serial NMEA GPS receiver, with a built-in comparison view so you can see both side by side.
