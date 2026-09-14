@@ -16,7 +16,7 @@ Position can come from macOS Location Services or a USB serial NMEA GPS receiver
 - **GPS auto-baud detection**, device picker, and a live raw NMEA message log
 - **Position Comparison table** showing Location Services vs. GPS time and position side by side
 - **Configurable coordinate formats** — Decimal Degrees, Degrees/Minutes/Seconds, or Degrees/Decimal Minutes, with an option to reverse Latitude/Longitude order — applied to both the display and Copy Latitude/Longitude
-- **Sync System Clock to GPS**, with a calibratable latency compensation setting to tighten accuracy — see [GPS clock sync accuracy](#gps-clock-sync-accuracy) below
+- **Sync System Clock to GPS**, enabled only while there's a fresh GPS fix, with a calibratable latency compensation setting to tighten accuracy — see [GPS clock sync accuracy](#gps-clock-sync-accuracy) below
 - **Launch at login**
 
 ## Requirements
@@ -67,7 +67,7 @@ The sandbox was dropped deliberately in v0.80 because setting the system clock r
 
 ## GPS clock sync accuracy
 
-The right-click menu's **Sync System Clock to GPS** sets the Mac's system clock to match the connected GPS receiver's time (admin authentication required). Getting this accurate runs into one hard limit and one tunable one:
+The right-click menu's **Sync System Clock to GPS** sets the Mac's system clock to match the connected GPS receiver's time (admin authentication required). It's only enabled while there's a fix received within the last 5 seconds — a GPS that's lost satellite lock (antenna covered, indoors, etc.) without the serial port itself disconnecting would otherwise leave the menu item enabled against a frozen, increasingly stale reading. Getting the sync itself accurate runs into one hard limit and one tunable one:
 
 - **Whole-second granularity.** macOS's `date` command can only *set* the clock to a whole second — there's no way to set fractional seconds from the command line. Menu Maiden works around this by computing the correction and applying it inside the privileged shell right after authentication succeeds (rather than before), so an admin prompt that takes a few seconds to answer doesn't get baked into the applied time.
 - **NMEA sentence latency.** There's a real, physical delay between the GPS's internal clock tick and Menu Maiden finishing parsing that fix's NMEA sentence — chipset processing time plus serial transmission time. This delay is roughly constant for a given GPS device and baud rate, so it shows up as a consistent bias in the same direction on every sync rather than random noise that averages out.
