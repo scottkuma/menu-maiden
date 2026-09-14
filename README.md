@@ -90,4 +90,8 @@ See the [v0.80b PRD](Product%20Requirements%20Document%20(PRD)%20v0.80b.md) for 
 
 ## License
 
-No license has been chosen yet for this project.
+Menu Maiden is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but **without any warranty**; without even the implied warranty of merchantability or fitness for a particular purpose. See the [GNU General Public License](LICENSE) for more details.
+
+Copyright (C) 2026 Scott Pettigrew
