@@ -92,6 +92,18 @@ final class StatusBarController: NSObject {
         // below actually take effect.
         menu.autoenablesItems = false
 
+        let aboutItem = NSMenuItem(title: "About Menu Maiden", action: #selector(openAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+
+        menu.addItem(.separator())
+
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
+
         let copyGridItem = NSMenuItem(title: "Copy Grid Square", action: #selector(copyGridSquare), keyEquivalent: "")
         copyGridItem.target = self
         menu.addItem(copyGridItem)
@@ -106,16 +118,6 @@ final class StatusBarController: NSObject {
         syncClockItem.target = self
         syncClockItem.isEnabled = gpsService.hasFreshFix
         menu.addItem(syncClockItem)
-
-        menu.addItem(.separator())
-
-        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: "")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
-
-        let aboutItem = NSMenuItem(title: "About", action: #selector(openAbout), keyEquivalent: "")
-        aboutItem.target = self
-        menu.addItem(aboutItem)
 
         menu.addItem(.separator())
 
