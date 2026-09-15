@@ -11,7 +11,7 @@ Position can come from macOS Location Services or a USB serial NMEA GPS receiver
   - 2 chars ≈ 1,200 × 1,400 mi · 4 chars ≈ 70 × 100 mi · 6 chars ≈ 3 × 4 mi · 8 chars ≈ 1,500 × 2,300 ft
   - Optional **ALL CAPS** display (`EM79VI` instead of `EM79vi`)
 - **Left-click the menu bar item** to cycle precision (4 → 6 → 8 → 2 → 4 …)
-- **Right-click** for Copy Grid Square, Copy Latitude/Longitude, Sync System Clock to GPS, Settings, About, and Quit
+- **Right-click** for About Menu Maiden, Settings, Copy Grid Square, Copy Latitude/Longitude, Sync System Clock to GPS, and Quit
 - **Position source**: macOS Location Services, or a USB serial NMEA GPS receiver — the GPS stays connected and visible in Settings regardless of which one is active
 - **GPS auto-baud detection**, device picker, and a live raw NMEA message log
 - **Position Comparison table** showing Location Services vs. GPS time and position side by side
