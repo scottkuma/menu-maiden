@@ -14,6 +14,8 @@ final class StatusBarController: NSObject {
 
     private var cancellables: Set<AnyCancellable> = []
     private var currentLocator: String = "--------"
+    private let autogridSender = AutogridSender()
+    private let autogridReceiver = AutogridReceiver()
 
     private var settingsWindowController: NSWindowController?
     private var aboutWindowController: NSWindowController?
@@ -44,6 +46,21 @@ final class StatusBarController: NSObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _ in
                 self?.refreshTitle()
+            }
+            .store(in: &cancellables)
+
+        // Only listens while enabled: binding an unused UDP port for the app's whole
+        // lifetime would be needless when the feature is off, and rebinding on a port
+        // change picks up the new value live rather than requiring a relaunch.
+        settings.$autogridEnabled
+            .combineLatest(settings.$autogridPort)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled, port in
+                if enabled {
+                    self?.autogridReceiver.start(port: port)
+                } else {
+                    self?.autogridReceiver.stop()
+                }
             }
             .store(in: &cancellables)
     }
@@ -114,6 +131,13 @@ final class StatusBarController: NSObject {
 
         menu.addItem(.separator())
 
+        let sendAutogridItem = NSMenuItem(title: "Send Autogrid", action: #selector(sendAutogrid), keyEquivalent: "")
+        sendAutogridItem.target = self
+        sendAutogridItem.isEnabled = settings.autogridEnabled && activeCoordinate() != nil && autogridReceiver.lastKnownConnection != nil
+        menu.addItem(sendAutogridItem)
+
+        menu.addItem(.separator())
+
         let syncClockItem = NSMenuItem(title: "Sync System Clock to GPS", action: #selector(syncSystemClockToGPS), keyEquivalent: "")
         syncClockItem.target = self
         syncClockItem.isEnabled = gpsService.hasFreshFix
@@ -147,6 +171,28 @@ final class StatusBarController: NSObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    /// Sends the current position to WSJT-X/JTDX over UDP as a "Location" message, always
+    /// at 6-character precision regardless of the menu bar's own display precision — that's
+    /// the only granularity WSJT-X's protocol accepts (besides 4-character), and deliberately
+    /// ignores `allCapsGrid`: that toggle is a display preference for this app's own UI, not
+    /// something that should alter data sent to an external program expecting conventional
+    /// mixed-case Maidenhead notation.
+    @objc private func sendAutogrid() {
+        guard let coordinate = activeCoordinate(), let connection = autogridReceiver.lastKnownConnection else { return }
+        let gridSquare = MaidenheadGrid.locator(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            precision: .six,
+            uppercase: false
+        )
+        autogridSender.send(
+            gridSquare: gridSquare,
+            clientId: settings.autogridClientId,
+            schema: autogridReceiver.lastKnownSchema ?? AutogridProtocol.defaultSchema,
+            using: connection
+        )
     }
 
     /// Sets the system clock to match the GPS's time. Deliberately doesn't precompute a
@@ -222,7 +268,7 @@ final class StatusBarController: NSObject {
             )
             window.title = "Settings"
             window.contentView = NSHostingView(
-                rootView: SettingsView(settings: settings, locationProvider: locationProvider, gpsService: gpsService)
+                rootView: SettingsView(settings: settings, locationProvider: locationProvider, gpsService: gpsService, autogridReceiver: autogridReceiver)
             )
             window.setContentSize(defaultSize)
             window.center()

@@ -7,6 +7,7 @@ struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var locationProvider: LocationProvider
     @ObservedObject var gpsService: SerialGPSService
+    @ObservedObject var autogridReceiver: AutogridReceiver
 
     @State private var launchAtStartError: String?
     @State private var availableDevices: [SerialDevice] = []
@@ -36,6 +37,9 @@ struct SettingsView: View {
 
                 coordinateFormatsTab
                     .tabItem { Label("Coordinate Formats", systemImage: "globe.americas") }
+
+                autogridTab
+                    .tabItem { Label("Autogrid", systemImage: "antenna.radiowaves.left.and.right") }
             }
             .frame(maxHeight: .infinity)
         }
@@ -110,6 +114,43 @@ struct SettingsView: View {
                 Toggle("Reverse Latitude/Longitude Order", isOn: $settings.reverseLatLon)
             } header: {
                 Label("Output Order", systemImage: "arrow.left.arrow.right")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var autogridTab: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Enable Autogrid", isOn: $settings.autogridEnabled)
+
+                    Text("Adds a \"Send Autogrid\" item to the right-click menu that pushes the current 6-character grid square to WSJT-X or JTDX over UDP, so its own grid square field updates without typing it in. Requires \"Accept UDP requests\" enabled in that program's own Reporting settings.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Label("WSJT-X / JTDX Autogrid", systemImage: "antenna.radiowaves.left.and.right")
+            }
+
+            Section {
+                TextField("Client ID", text: $settings.autogridClientId)
+                TextField("Port", value: $settings.autogridPort, format: .number.grouping(.never))
+
+                Text("Menu Maiden listens on this port for WSJT-X/JTDX's own traffic to learn where to reply — it should match the \"UDP Server\" port configured in that program's Reporting settings (WSJT-X defaults to 2237; JTDX's default differs).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Label("Connection", systemImage: "network")
+            }
+
+            if settings.autogridEnabled {
+                Section {
+                    Label(autogridStatusText, systemImage: autogridStatusIcon)
+                        .foregroundStyle(autogridStatusColor)
+                } header: {
+                    Label("Status", systemImage: "waveform")
+                }
             }
         }
         .formStyle(.grouped)
@@ -331,6 +372,27 @@ struct SettingsView: View {
         case .error, .deviceNotFound: return "exclamationmark.triangle.fill"
         default: return "clock"
         }
+    }
+
+    // MARK: - Autogrid status
+
+    private var autogridStatusText: String {
+        if let heartbeat = autogridReceiver.lastHeartbeat {
+            let version = heartbeat.version.map { " \($0)" } ?? ""
+            return "Connected to \(heartbeat.id)\(version)"
+        } else if autogridReceiver.lastKnownConnection != nil {
+            return "Receiving traffic, waiting for identification…"
+        } else {
+            return "Waiting for WSJT-X/JTDX…"
+        }
+    }
+
+    private var autogridStatusIcon: String {
+        autogridReceiver.lastHeartbeat != nil ? "checkmark.circle.fill" : "clock"
+    }
+
+    private var autogridStatusColor: Color {
+        autogridReceiver.lastHeartbeat != nil ? .green : .secondary
     }
 
     private var deviceBinding: Binding<String?> {

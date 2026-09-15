@@ -13,12 +13,13 @@ Position can come from macOS Location Services or a USB serial NMEA GPS receiver
   - 2 chars ≈ 1,200 × 1,400 mi · 4 chars ≈ 70 × 100 mi · 6 chars ≈ 3 × 4 mi · 8 chars ≈ 1,500 × 2,300 ft
   - Optional **ALL CAPS** display (`EM79VI` instead of `EM79vi`)
 - **Left-click the menu bar item** to cycle precision (4 → 6 → 8 → 2 → 4 …)
-- **Right-click** for About Menu Maiden, Settings, Copy Grid Square, Copy Latitude/Longitude, Sync System Clock to GPS, and Quit
+- **Right-click** for About Menu Maiden, Settings, Copy Grid Square, Copy Latitude/Longitude, Send Autogrid, Sync System Clock to GPS, and Quit
 - **Position source**: macOS Location Services, or a USB serial NMEA GPS receiver — the GPS stays connected and visible in Settings regardless of which one is active
 - **GPS auto-baud detection**, device picker, and a live raw NMEA message log
 - **Position Comparison table** showing Location Services vs. GPS time and position side by side
 - **Configurable coordinate formats** — Decimal Degrees, Degrees/Minutes/Seconds, or Degrees/Decimal Minutes, with an option to reverse Latitude/Longitude order — applied to both the display and Copy Latitude/Longitude
 - **Sync System Clock to GPS**, enabled only while there's a fresh GPS fix, with a calibratable latency compensation setting to tighten accuracy — see [GPS clock sync accuracy](#gps-clock-sync-accuracy) below
+- **WSJT-X / JTDX Autogrid** — sends the current grid square to WSJT-X or JTDX over UDP so its own grid square field updates without typing it in — see [WSJT-X / JTDX Autogrid](#wsjt-x--jtdx-autogrid) below
 - **Launch at login**
 
 ## Requirements
@@ -47,15 +48,16 @@ xcodebuild -project MenuMaiden.xcodeproj -scheme MenuMaiden -destination 'platfo
 ```
 MenuMaiden/
   App/            App entry point and delegate (first-launch/splash flow)
+  Autogrid/       WSJT-X/JTDX UDP protocol encoding, the listener that detects it, and the sender
   Core/           Pure logic: Maidenhead grid math, precision, settings persistence
   GPS/            NMEA parsing, serial port discovery, and the GPS service
   Location/       CoreLocation wrapper
   StatusBar/      NSStatusItem, menu, and click handling
   UI/             SwiftUI views (Settings, Splash, About)
-MenuMaidenTests/  Unit tests for the grid math and NMEA parsing
+MenuMaidenTests/  Unit tests for the grid math, NMEA parsing, and Autogrid protocol
 ```
 
-The Maidenhead grid calculation and NMEA parsing are both pure, side-effect-free functions covered by unit tests — everything that talks to hardware (CoreLocation, the serial port) is kept separate from that logic.
+The Maidenhead grid calculation, NMEA parsing, and Autogrid protocol encoding are all pure, side-effect-free functions covered by unit tests — everything that talks to hardware or the network (CoreLocation, the serial port, UDP sockets) is kept separate from that logic.
 
 ## Permissions & entitlements
 
@@ -83,11 +85,34 @@ Settings → GPS → **Clock Sync** has a **Latency Compensation** stepper (in m
 
 Even calibrated, don't expect better than roughly ±100–200ms: that's bounded by the GPS module's own timing jitter. Sub-100ms accuracy would require a PPS (pulse-per-second) hardware line, which most USB NMEA GPS receivers don't expose over plain serial.
 
+## WSJT-X / JTDX Autogrid
+
+The right-click menu's **Send Autogrid** item sends the current position to WSJT-X or JTDX over UDP as a "Location" message, which sets that program's own grid square field for the session — useful during mobile/field operation so it doesn't need to be typed in by hand. It's a manual, one-shot send (not automatic/periodic yet — see Roadmap below), enabled only when **all** of the following are true:
+
+1. **Autogrid is turned on** in Settings → Autogrid.
+2. There's a **valid position** from whichever source is currently active in General → Position Source.
+3. Menu Maiden has **detected WSJT-X/JTDX** — see "How detection works" below.
+
+A few things worth knowing:
+
+- **Always 6-character precision**, regardless of what precision the menu bar itself is displaying. WSJT-X's UDP protocol only accepts 4- or 6-digit locators for this message, and 6-character is the more common convention.
+- **Settings → Autogrid** has three fields: the enable toggle, a **Client ID** string (default `MenuMaiden`) required by the protocol's message format but not validated against anything by the receiving program, and the **Port** Menu Maiden listens on (default `2237`, matching WSJT-X's own default "UDP Server" port — JTDX's default differs, so check that program's own Reporting settings if using it instead). There's no host/IP field — see below for why.
+- A **Status** row (shown only while Autogrid is enabled) reports live detection state: "Waiting for WSJT-X/JTDX…", "Receiving traffic, waiting for identification…", or "Connected to WSJT-X 3.0.2" (or whichever program/version) once its Heartbeat message has been decoded.
+- The receiving program needs **"Accept UDP requests" enabled** in its own Settings → Reporting tab, or nothing is ever detected.
+
+### How detection works
+
+WSJT-X's UDP protocol is easy to misread: WSJT-X itself is the protocol "client" — it sends its own state *to* a configured address, and only accepts replies on the ephemeral local port that traffic came *from*, never on its own configured port. There's no fixed destination Menu Maiden can send to ahead of time. An initial fire-and-forget implementation (send to the configured host:port directly) silently went nowhere, confirmed by testing against a real running WSJT-X 3.0.2 instance.
+
+So instead, Menu Maiden's `AutogridReceiver` binds the configured port itself, waits for WSJT-X/JTDX's own outbound traffic to arrive, and replies on that same connection — which is also the only way to know the connection exists at all, hence the Status indicator and the third enablement condition above. The schema version (a protocol-negotiation detail) and the peer's identity are both read live off that traffic rather than hardcoded, since a real WSJT-X 3.0.2 instance was observed declaring schema 2 where the protocol's own documentation comments suggested schema 3 for "modern" builds.
+
+The exact byte layout — encoding and decoding — was verified directly against WSJT-X's own protocol source (`NetworkMessage.hpp`) and real captured packets rather than assumed; see `MenuMaiden/Autogrid/AutogridProtocol.swift` and its tests.
+
 ## Roadmap
 
-See the [v0.80b PRD](Product%20Requirements%20Document%20(PRD)%20v0.80b.md) for the full spec. Not yet built:
+See the [v0.90b PRD](Product%20Requirements%20Document%20(PRD)%20v0.90b.md) for the full spec. Not yet built:
 
-- Position reporting to WSJT-X and other ham radio applications
+- Automatic/periodic Autogrid sending (cadence), rather than the current manual per-click trigger
 - A GPS-disciplined local NTP time service (would require a privileged helper daemon and move distribution off the Mac App Store)
 
 ## License

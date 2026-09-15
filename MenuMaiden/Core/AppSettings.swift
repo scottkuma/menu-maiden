@@ -13,6 +13,9 @@ final class AppSettings: ObservableObject {
         static let coordinateFormat = "coordinateFormat"
         static let reverseLatLon = "reverseLatLon"
         static let clockSyncCompensationMs = "clockSyncCompensationMs"
+        static let autogridEnabled = "autogridEnabled"
+        static let autogridClientId = "autogridClientId"
+        static let autogridPort = "autogridPort"
     }
 
     private let defaults: UserDefaults
@@ -67,6 +70,18 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(clockSyncCompensationMs, forKey: Keys.clockSyncCompensationMs) }
     }
 
+    @Published var autogridEnabled: Bool {
+        didSet { defaults.set(autogridEnabled, forKey: Keys.autogridEnabled) }
+    }
+
+    @Published var autogridClientId: String {
+        didSet { defaults.set(autogridClientId, forKey: Keys.autogridClientId) }
+    }
+
+    @Published var autogridPort: Int {
+        didSet { defaults.set(autogridPort, forKey: Keys.autogridPort) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
@@ -109,6 +124,15 @@ final class AppSettings: ObservableObject {
             self.clockSyncCompensationMs = defaults.double(forKey: Keys.clockSyncCompensationMs)
         } else {
             self.clockSyncCompensationMs = 0
+        }
+
+        self.autogridEnabled = defaults.bool(forKey: Keys.autogridEnabled)
+        self.autogridClientId = defaults.string(forKey: Keys.autogridClientId) ?? "MenuMaiden"
+
+        if defaults.object(forKey: Keys.autogridPort) != nil {
+            self.autogridPort = defaults.integer(forKey: Keys.autogridPort)
+        } else {
+            self.autogridPort = 2237
         }
     }
 }
