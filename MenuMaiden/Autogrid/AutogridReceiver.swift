@@ -34,6 +34,17 @@ final class AutogridReceiver: ObservableObject {
     /// assume it. `@Published` so the Autogrid Settings tab updates live.
     @Published private(set) var lastHeartbeat: AutogridHeartbeat?
 
+    /// `lastKnownConnection`'s remote address, for display alongside `lastHeartbeat` —
+    /// lets the user visually confirm who Menu Maiden actually considers "connected"
+    /// rather than taking it on faith.
+    var lastKnownPeerAddress: String? {
+        guard let endpoint = lastKnownConnection?.endpoint else { return nil }
+        if case .hostPort(let host, let port) = endpoint {
+            return "\(host):\(port)"
+        }
+        return "\(endpoint)"
+    }
+
     func start(port: Int) {
         stop()
         guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)),
@@ -75,14 +86,26 @@ final class AutogridReceiver: ObservableObject {
         connection.receiveMessage { [weak self] data, _, _, error in
             Task { @MainActor in
                 guard let self else { return }
-                if let data {
-                    self.lastKnownConnection = connection
-                    if let header = AutogridProtocol.header(from: data) {
+                if let data, let header = AutogridProtocol.header(from: data) {
+                    if header.messageType == AutogridProtocol.heartbeatMessageType,
+                       let heartbeat = AutogridProtocol.heartbeat(from: data) {
+                        // A successfully parsed Heartbeat is what establishes trust in this
+                        // connection as the reply target — security-critical: this used to
+                        // be set from ANY received datagram, regardless of whether it even
+                        // parsed as this protocol, letting a single unauthenticated packet
+                        // from anywhere on the LAN hijack "Send Autogrid"'s destination and
+                        // exfiltrate the user's location. Never widen this to accept trust
+                        // from any other message type, however well-formed.
+                        self.lastKnownConnection = connection
+                        self.lastHeartbeat = heartbeat
                         self.lastKnownSchema = header.schema
-                        if header.messageType == AutogridProtocol.heartbeatMessageType,
-                           let heartbeat = AutogridProtocol.heartbeat(from: data) {
-                            self.lastHeartbeat = heartbeat
-                        }
+                    } else if self.lastKnownConnection === connection {
+                        // Fine to refresh the schema from later traffic on a connection
+                        // already trusted via a prior Heartbeat: it's the same NWConnection
+                        // object, and Network.framework guarantees a UDP flow's remote
+                        // endpoint can't change out from under it — so this can't be used
+                        // to establish trust from an untrusted sender.
+                        self.lastKnownSchema = header.schema
                     }
                 }
                 if error == nil {

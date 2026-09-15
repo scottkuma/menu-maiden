@@ -146,8 +146,19 @@ struct SettingsView: View {
 
             if settings.autogridEnabled {
                 Section {
-                    Label(autogridStatusText, systemImage: autogridStatusIcon)
-                        .foregroundStyle(autogridStatusColor)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(autogridStatusText, systemImage: autogridStatusIcon)
+                            .foregroundStyle(autogridStatusColor)
+
+                        if let heartbeat = autogridReceiver.lastHeartbeat, let address = autogridReceiver.lastKnownPeerAddress {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Client ID: \(heartbeat.id)")
+                                Text("Address: \(address)")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
                 } header: {
                     Label("Status", systemImage: "waveform")
                 }
@@ -376,12 +387,13 @@ struct SettingsView: View {
 
     // MARK: - Autogrid status
 
+    // A connection is only ever recorded once a Heartbeat from it has been validated
+    // (AutogridReceiver gates on this for security — see its receive(on:) comment), so
+    // there's no separate "traffic seen but not yet identified" state to report here.
     private var autogridStatusText: String {
         if let heartbeat = autogridReceiver.lastHeartbeat {
             let version = heartbeat.version.map { " \($0)" } ?? ""
             return "Connected to \(heartbeat.id)\(version)"
-        } else if autogridReceiver.lastKnownConnection != nil {
-            return "Receiving traffic, waiting for identification…"
         } else {
             return "Waiting for WSJT-X/JTDX…"
         }
